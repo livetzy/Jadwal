@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{% block title %}Jadwal Jabez — Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ═══════ DAY NAVIGATION ═══════ -->
+<div class="day-nav">
+    {% if view_mode is defined and view_mode == 'weekly' %}
+    <a href="{{ url_for('weekly', date=prev_week) }}" class="day-nav-btn" title="Minggu sebelumnya">
+        ← Minggu Lalu
+    </a>
+    {% else %}
+    <a href="{{ url_for('index', date=prev_date) }}" class="day-nav-btn" title="Hari sebelumnya">
+        ← Kemarin
+    </a>
+    {% endif %}
+
+    <div class="day-nav-center">
+        <input type="date" id="datePicker" value="{{ view_date }}"
+               class="date-picker" title="Pilih tanggal"
+               data-view="{{ 'weekly' if view_mode is defined and view_mode == 'weekly' else 'daily' }}">
+        {% if view_mode is defined and view_mode == 'weekly' %}
+        <a href="{{ url_for('weekly') }}" class="btn btn-small btn-accent">Minggu Ini</a>
+        {% elif not is_today %}
+        <a href="{{ url_for('index', date=today) }}" class="btn btn-small btn-accent">Hari Ini</a>
+        {% endif %}
+    </div>
+
+    {% if view_mode is defined and view_mode == 'weekly' %}
+    <a href="{{ url_for('weekly', date=next_week) }}" class="day-nav-btn" title="Minggu berikutnya">
+        Minggu Depan →
+    </a>
+    {% else %}
+    <a href="{{ url_for('index', date=next_date) }}" class="day-nav-btn" title="Hari berikutnya">
+        Besok →
+    </a>
+    {% endif %}
+</div>
+
+<!-- ═══════ VIEW TABS & ACTIONS ═══════ -->
+<div class="toolbar">
+    <div class="view-tabs">
+        <a href="{{ url_for('index', date=view_date) }}"
+           class="tab {% if not view_mode is defined or view_mode != 'weekly' %}active{% endif %}">
+            📅 Harian
+        </a>
+        <a href="{{ url_for('weekly', date=view_date) }}"
+           class="tab {% if view_mode is defined and view_mode == 'weekly' %}active{% endif %}">
+            🗓 Mingguan
+        </a>
+    </div>
+    <div class="toolbar-actions">
+        <button class="btn btn-ghost btn-small" id="exportBtn" title="Export jadwal">
+            📤 Export
+        </button>
+        <button class="btn btn-ghost btn-small" id="importBtn" title="Import jadwal">
+            📥 Import
+        </button>
+    </div>
+</div>
+
+<!-- ═══════ STATISTICS CARDS ═══════ -->
+<div class="stats-grid">
+    <div class="stat-card stat-card-primary">
+        <div class="stat-icon">📋</div>
+        <div class="stat-content">
+            <span class="stat-value" id="statTodayTotal">{{ stats.today_total }}</span>
+            <span class="stat-label">Jadwal Hari Ini</span>
+        </div>
+    </div>
+    <div class="stat-card stat-card-success">
+        <div class="stat-icon">✅</div>
+        <div class="stat-content">
+            <span class="stat-value" id="statTodayCompleted">{{ stats.today_completed }}</span>
+            <span class="stat-label">Selesai</span>
+        </div>
+    </div>
+    <div class="stat-card stat-card-warning">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-content">
+            <span class="stat-value" id="statTodayPending">{{ stats.today_pending }}</span>
+            <span class="stat-label">Belum Selesai</span>
+        </div>
+    </div>
+    <div class="stat-card stat-card-info">
+        <div class="stat-icon">📊</div>
+        <div class="stat-content">
+            <span class="stat-value" id="statWeekTotal">{{ stats.week_total }}</span>
+            <span class="stat-label">Jadwal Minggu Ini</span>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════ PROGRESS CARD ═══════ -->
+<div class="progress-card" id="progressCard">
+    <div class="progress-header">
+        <h3>📊 Progress Hari Ini</h3>
+        <span class="progress-count" id="progressCount">{{ completed }} / {{ total }} selesai</span>
+    </div>
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar" style="width: {{ progress }}%"></div>
+    </div>
+    <span class="progress-percent" id="progressPercent">{{ progress }}%</span>
+</div>
+
+<!-- ═══════ FILTERS ═══════ -->
+<div class="filters-bar">
+    <div class="filter-group">
+        <button class="filter-btn active" data-filter="all">Semua</button>
+        <button class="filter-btn" data-filter="pending">Belum selesai</button>
+        <button class="filter-btn" data-filter="completed">Selesai</button>
+    </div>
+    <div class="filter-group">
+        <select id="categoryFilter" class="filter-select">
+            <option value="all">Semua Kategori</option>
+            {% for cat in categories %}
+            <option value="{{ cat.value }}">{{ cat.label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- ═══════ WEEKLY VIEW ═══════ -->
+{% if view_mode is defined and view_mode == 'weekly' %}
+<div class="weekly-grid">
+    {% for day in week_data %}
+    <div class="weekly-day-card {% if day.is_today %}today{% endif %}">
+        <div class="weekly-day-header">
+            <h4>{{ day.day_name }}</h4>
+            <span class="weekly-day-num">{{ day.day_num }}</span>
+            {% if day.total > 0 %}
+            <span class="weekly-day-progress">{{ day.completed }}/{{ day.total }}</span>
+            {% endif %}
+        </div>
+        <div class="weekly-day-body">
+            {% if day.schedules %}
+                {% for s in day.schedules %}
+                <div class="weekly-schedule-item {% if s.is_completed %}completed{% endif %} priority-{{ s.priority }}">
+                    <span class="weekly-time">{{ s.start_time[:5] }}</span>
+                    <span class="weekly-title {% if s.is_completed %}line-through{% endif %}">{{ s.title }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="weekly-empty">—</p>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('index', date=day.date) }}" class="weekly-day-link">Lihat detail →</a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ═══════ DAILY TIMELINE ═══════ -->
+{% if not view_mode is defined or view_mode != 'weekly' %}
+<div class="timeline" id="timeline" data-date="{{ view_date }}">
+    {% if schedules %}
+        {% for schedule in schedules %}
+        <div class="schedule-card priority-{{ schedule.priority }} {% if schedule.is_completed %}completed{% endif %}"
+             data-id="{{ schedule.id }}"
+             data-category="{{ schedule.category }}"
+             data-status="{% if schedule.is_completed %}completed{% else %}pending{% endif %}"
+             draggable="true">
+
+            <!-- Drag Handle -->
+            <div class="drag-handle" title="Drag untuk mengubah urutan">
+                <span class="drag-dots">⠿</span>
+            </div>
+
+            <!-- Time column -->
+            <div class="schedule-time">
+                <span class="time-start">{{ schedule.start_time[:5] }}</span>
+                <div class="time-line"></div>
+                <span class="time-end">{{ schedule.end_time[:5] }}</span>
+            </div>
+
+            <!-- Content column -->
+            <div class="schedule-body">
+                <div class="schedule-top">
+                    <label class="checkbox-wrapper">
+                        <input type="checkbox"
+                               class="schedule-checkbox"
+                               data-id="{{ schedule.id }}"
+                               data-date="{{ view_date }}"
+                               {% if schedule.is_completed %}checked{% endif %}>
+                        <span class="checkmark"></span>
+                    </label>
+                    <div class="schedule-info">
+                        <h4 class="schedule-title {% if schedule.is_completed %}line-through{% endif %}">
+                            {{ schedule.title }}
+                        </h4>
+                        {% if schedule.description %}
+                        <p class="schedule-desc">{{ schedule.description }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="schedule-meta">
+                    <span class="badge badge-category">
+                        {% for cat in categories %}
+                            {% if cat.value == schedule.category %}{{ cat.label }}{% endif %}
+                        {% endfor %}
+                    </span>
+                    <span class="badge badge-priority badge-{{ schedule.priority }}">
+                        {% for pri in priorities %}
+                            {% if pri.value == schedule.priority %}{{ pri.label }}{% endif %}
+                        {% endfor %}
+                    </span>
+                    {% if schedule.is_recurring %}
+                    <span class="badge badge-recurring">🔁 Berulang</span>
+                    {% endif %}
+                </div>
+                <div class="schedule-actions">
+                    <a href="{{ url_for('edit_schedule', schedule_id=schedule.id) }}"
+                       class="action-btn edit-btn" title="Edit">✏️</a>
+                    <button class="action-btn delete-btn"
+                            data-id="{{ schedule.id }}" title="Hapus">🗑️</button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <!-- Empty state -->
+        <div class="empty-state">
+            <div class="empty-icon">🎉</div>
+            <h3>Belum ada jadwal hari ini</h3>
+            <p>Gunakan waktu ini untuk beristirahat atau tambahkan jadwal baru.</p>
+            <a href="{{ url_for('add_schedule') }}" class="btn btn-primary">
+                + Tambah Jadwal
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ═══════ EXPORT MODAL ═══════ -->
+<div class="modal-overlay" id="exportModal">
+    <div class="modal export-modal">
+        <div class="modal-icon">📤</div>
+        <h3>Export Jadwal</h3>
+        <p>Pilih format dan rentang data yang ingin di-export.</p>
+
+        <div class="export-options">
+            <div class="export-option-group">
+                <label class="export-label">Rentang Data</label>
+                <div class="export-range-btns">
+                    <button class="export-range-btn active" data-range="today">Hari Ini</button>
+                    <button class="export-range-btn" data-range="all">Semua</button>
+                </div>
+            </div>
+            <div class="export-option-group">
+                <label class="export-label">Format</label>
+                <div class="export-format-btns">
+                    <button class="export-format-btn active" data-format="json">
+                        <span class="format-icon">{ }</span>
+                        JSON
+                    </button>
+                    <button class="export-format-btn" data-format="csv">
+                        <span class="format-icon">📊</span>
+                        CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="exportCancel">Batal</button>
+            <button class="btn btn-primary" id="exportConfirm">📤 Download</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Jadwal Jabez — Aplikasi personal scheduler untuk mengatur kegiatan sehari-hari.">
+    <title>{% block title %}Jadwal Jabez{% endblock %}</title>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- ═══════ SIDEBAR ═══════ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon">📅</span>
+                <div>
+                    <h1 class="logo-text">Jadwal Jabez</h1>
+                    <p class="logo-tagline">{{ tagline }}</p>
+                </div>
+            </div>
+            <button class="sidebar-close" id="sidebarClose" aria-label="Tutup sidebar">✕</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('index') }}"
+               class="nav-item {% if request.endpoint == 'index' and not request.args.get('view') %}active{% endif %}">
+                <span class="nav-icon">🏠</span> Dashboard
+            </a>
+            <a href="{{ url_for('index', date=today) }}"
+               class="nav-item">
+                <span class="nav-icon">📅</span> Hari Ini
+            </a>
+            <a href="{{ url_for('weekly') }}"
+               class="nav-item {% if request.endpoint == 'weekly' %}active{% endif %}">
+                <span class="nav-icon">🗓</span> Minggu Ini
+            </a>
+            <a href="{{ url_for('add_schedule') }}"
+               class="nav-item {% if request.endpoint == 'add_schedule' %}active{% endif %}">
+                <span class="nav-icon">➕</span> Tambah Jadwal
+            </a>
+
+            <div class="nav-divider"></div>
+
+            <!-- Dark Mode Toggle -->
+            <button class="nav-item theme-toggle-btn" id="themeToggle">
+                <span class="nav-icon" id="themeIcon">🌙</span>
+                <span id="themeLabel">Mode Gelap</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>Made with 💖 by Jabez</p>
+        </div>
+    </aside>
+
+    <!-- ═══════ OVERLAY (mobile) ═══════ -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- ═══════ MAIN CONTENT ═══════ -->
+    <main class="main-content">
+        <!-- HEADER -->
+        <header class="top-header">
+            <div class="header-left">
+                <button class="menu-toggle" id="menuToggle" aria-label="Buka menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <div class="header-info">
+                    <h2 class="header-greeting">{{ greeting }}</h2>
+                    <p class="header-date">{{ tanggal_display if tanggal_display else '' }}</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="search-box" id="searchBox">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Cari jadwal..." autocomplete="off">
+                </div>
+                <a href="{{ url_for('add_schedule') }}" class="btn btn-primary header-add-btn">
+                    <span>+</span> Tambah
+                </a>
+            </div>
+        </header>
+
+        <!-- FLASH MESSAGES -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-container">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">
+                <span>{{ message }}</span>
+                <button class="flash-close" onclick="this.parentElement.remove()">✕</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- PAGE CONTENT -->
+        <div class="page-content">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- ═══════ FAB (Mobile) ═══════ -->
+    <a href="{{ url_for('add_schedule') }}" class="fab" title="Tambah Jadwal">+</a>
+
+    <!-- ═══════ TOAST CONTAINER ═══════ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ═══════ DELETE MODAL ═══════ -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <div class="modal-icon">⚠️</div>
+            <h3>Hapus Jadwal?</h3>
+            <p>Apakah kamu yakin ingin menghapus jadwal ini? Tindakan ini tidak dapat dibatalkan.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="modalCancel">Batal</button>
+                <button class="btn btn-danger" id="modalConfirm">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ IMPORT MODAL ═══════ -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal import-modal">
+            <div class="modal-icon">📥</div>
+            <h3>Import Jadwal</h3>
+            <p>Pilih file JSON atau CSV untuk mengimport jadwal.</p>
+            <div class="import-drop-zone" id="importDropZone">
+                <div class="drop-zone-icon">📁</div>
+                <p>Drag & drop file ke sini, atau</p>
+                <label class="btn btn-primary btn-small import-file-label">
+                    Pilih File
+                    <input type="file" id="importFileInput" accept=".json,.csv" hidden>
+                </label>
+                <p class="import-file-name" id="importFileName"></p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="importCancel">Batal</button>
+                <button class="btn btn-primary" id="importConfirm" disabled>📥 Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ NOTIFICATION CONTAINER ═══════ -->
+    <div class="notification-container" id="notificationContainer"></div>
+
+    <!-- ═══════ CONFETTI CANVAS ═══════ -->
+    <canvas id="confettiCanvas"></canvas>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
